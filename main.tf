@@ -83,7 +83,8 @@ resource "aws_security_group" "default" {
 }
 
 resource "aws_elb" "web" {
-  name = "terraform-example-elb"
+  name               = "terraform-example-elb"
+  availability_zones = ["${split(",",var.availability_zones)}"]
 
   subnets         = ["${aws_subnet.default.id}"]
   security_groups = ["${aws_security_group.elb.id}"]
@@ -95,53 +96,91 @@ resource "aws_elb" "web" {
     lb_port           = 80
     lb_protocol       = "http"
   }
-}
 
-resource "aws_key_pair" "auth" {
-  key_name   = "${var.key_name}"
-  public_key = "${file(var.public_key_path)}"
-}
-
-resource "aws_instance" "web" {
-  # The connection block tells our provisioner how to
-  # communicate with the resource (instance)
-  connection {
-    # The default username for our AMI
-    user = "ec2-user"
-
-    # The connection will use the local SSH agent for authentication.
+  health_check {
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 3
+    target              = "HTTP:80/"
+    interval            = 30
   }
+}
 
-  instance_type = "t2.micro"
+resource "aws_launch_configuration" "web-lc" {
+  name          = "terraform-example-launch-config"
+  image_id      = "${lookup(var.aws_amis, var.aws_region)}"
+  instance_type = "${var.instance_type}"
 
+  #Security Groups
+  security_groups = ["${aws_security_group.default.id}"]
+  user_data       = "${file("user_date.sh")}"
+  key_name        = "${var.key_name}"
+}
+
+resource "aws_autoscaling_group" "web-asg" {
+  availability_zones   = ["${split(",",var.availability_zones)}"]
+  name                 = "terraform-asg-example"
+  max_size             = "${var.asg_max}"
+  min_size             = "${var.asg_min}"
+  desired_capacity     = "${var.desired_capacity}"
+  force_delete         = true
+  launch_configuration = "${aws_launch_configuration.web-lc.name}"
+
+  #vpc_zone_identifier = ["${split(",",var.availability_zones)}"]
   tags {
-    Name = "tlo-web"
-  }
-
-  # Lookup the correct AMI based on the region
-  # we specified
-  ami = "${lookup(var.aws_amis, var.aws_region)}"
-
-  # The name of our SSH keypair we created above.
-  key_name = "${aws_key_pair.auth.id}"
-
-  # Our Security group to allow HTTP and SSH access
-  vpc_security_group_ids = ["${aws_security_group.default.id}"]
-
-  # We're going to launch into the same subnet as our ELB. In a production
-  # environment it's more common to have a separate private subnet for
-  # backend instances.
-  subnet_id = "${aws_subnet.default.id}"
-
-  # We run a remote provisioner on the instance after creating it.
-  # In this case, we just install nginx and start it. By default,
-  # this should be on port 80
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo yum update -qy",
-      "sudo yum install nginx -y",
-      "sudo service nginx start",
-    ]
+    key                 = "Name"
+    value               = "web-asg"
+    propagate_on_launch = "true"
   }
 }
+
+#resource "aws_key_pair" "auth" {
+#  key_name   = "${var.key_name}"
+#  public_key = "${file(var.public_key_path)}"
+#}
+#
+#resource "aws_instance" "web" {
+#  # The connection block tells our provisioner how to
+#  # communicate with the resource (instance)
+#  connection {
+#    # The default username for our AMI
+#    user = "ec2-user"
+#
+#    # The connection will use the local SSH agent for authentication.
+#  }
+#
+#  instance_type = "t2.micro"
+#
+#  tags {
+#    Name = "tlo-web"
+#  }
+#
+#  # Lookup the correct AMI based on the region
+#  # we specified
+#  ami = "${lookup(var.aws_amis, var.aws_region)}"
+#
+#  # The name of our SSH keypair we created above.
+#  key_name = "${aws_key_pair.auth.id}"
+#
+#  # Our Security group to allow HTTP and SSH access
+#  vpc_security_group_ids = ["${aws_security_group.default.id}"]
+#
+#  # We're going to launch into the same subnet as our ELB. In a production
+#  # environment it's more common to have a separate private subnet for
+#  # backend instances.
+#  subnet_id = "${aws_subnet.default.id}"
+#
+#  # We run a remote provisioner on the instance after creating it.
+#  # In this case, we just install nginx and start it. By default,
+#  # this should be on port 80
+#
+#  provisioner "remote-exec" {
+#    inline = [
+#      "sudo yum update -qy",
+#      "sudo yum install nginx -y",
+#      "sudo service nginx start",
+#    ]
+#  }
+#}
+#
+

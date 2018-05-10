@@ -26,3 +26,23 @@ variable "aws_amis" {
     eu-west-2 = "ami-c12dcda6"
   }
 }
+
+variable "availability_zones" {
+  default     = "eu-west-1b,eu-west-1c,eu-west-1d,eu-west-1e"
+  description = "List of availability zones, use AWS CLI to find your "
+}
+
+variable "asg_min" {
+  description = "Min numbers of servers in ASG"
+  default     = "1"
+}
+
+variable "asg_max" {
+  description = "Max numbers of servers in ASG"
+  default     = "2"
+}
+
+variable "asg_desired" {
+  description = "Desired numbers of servers in ASG"
+  default     = "1"
+}
