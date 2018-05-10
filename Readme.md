@@ -32,5 +32,5 @@ terraform apply -var 'key_name={your_aws_key_name}' \
 For example:
 
 ```
-terraform apply -var 'key_name=terraform' -var 'public_key_path=/Users/jsmith/.ssh/terraform.pub'
+terraform apply -var 'key_name=terraform' -var 'public_key_path=~/.ssh/terraform.pub'
 ```
