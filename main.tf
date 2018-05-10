@@ -33,6 +33,14 @@ resource "aws_security_group" "elb" {
   description = "Used in the terraform"
   vpc_id      = "${aws_vpc.default.id}"
 
+  # SSH access from anywhere
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # HTTP access from anywhere
   ingress {
     from_port   = 80
@@ -50,45 +58,13 @@ resource "aws_security_group" "elb" {
   }
 }
 
-# Our default security group to access
-# the instances over SSH and HTTP
-resource "aws_security_group" "default" {
-  name        = "terraform_example"
-  description = "Used in the terraform"
-  vpc_id      = "${aws_vpc.default.id}"
-
-  # SSH access from anywhere
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # HTTP access from the VPC
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
-  }
-
-  # outbound internet access
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_elb" "web" {
+resource "aws_elb" "web-elb" {
   name               = "terraform-example-elb"
   availability_zones = ["${split(",",var.availability_zones)}"]
 
-  subnets         = ["${aws_subnet.default.id}"]
-  security_groups = ["${aws_security_group.elb.id}"]
-  instances       = ["${aws_instance.web.id}"]
+  #subnets         = ["${aws_subnet.default.id}"]
+  #security_groups = ["${aws_security_group.elb.id}"]
+  #instances       = ["${aws_instance.web.id}"]
 
   listener {
     instance_port     = 80
@@ -96,7 +72,6 @@ resource "aws_elb" "web" {
     lb_port           = 80
     lb_protocol       = "http"
   }
-
   health_check {
     healthy_threshold   = 2
     unhealthy_threshold = 2
@@ -112,8 +87,8 @@ resource "aws_launch_configuration" "web-lc" {
   instance_type = "${var.instance_type}"
 
   #Security Groups
-  security_groups = ["${aws_security_group.default.id}"]
-  user_data       = "${file("user_date.sh")}"
+  security_groups = ["${aws_security_group.elb.id}"]
+  user_data       = "${file("user_data.sh")}"
   key_name        = "${var.key_name}"
 }
 
@@ -130,15 +105,15 @@ resource "aws_autoscaling_group" "web-asg" {
   tags {
     key                 = "Name"
     value               = "web-asg"
-    propagate_on_launch = "true"
+    propagate_at_launch = true
   }
 }
 
-#resource "aws_key_pair" "auth" {
-#  key_name   = "${var.key_name}"
-#  public_key = "${file(var.public_key_path)}"
-#}
-#
+resource "aws_key_pair" "auth" {
+  key_name   = "${var.key_name}"
+  public_key = "${file(var.public_key_path)}"
+}
+
 #resource "aws_instance" "web" {
 #  # The connection block tells our provisioner how to
 #  # communicate with the resource (instance)

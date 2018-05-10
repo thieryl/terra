@@ -27,8 +27,13 @@ variable "aws_amis" {
   }
 }
 
+variable "instance_type" {
+  default     = "t2.micro"
+  description = "AWS instance type"
+}
+
 variable "availability_zones" {
-  default     = "eu-west-1b,eu-west-1c,eu-west-1d,eu-west-1e"
+  default     = "eu-west-1a,eu-west-1b,eu-west-1c"
   description = "List of availability zones, use AWS CLI to find your "
 }
 
@@ -42,7 +47,7 @@ variable "asg_max" {
   default     = "2"
 }
 
-variable "asg_desired" {
+variable "desired_capacity" {
   description = "Desired numbers of servers in ASG"
   default     = "1"
 }
