@@ -76,6 +76,9 @@ resource "aws_autoscaling_group" "web-asg" {
   force_delete         = true
   launch_configuration = "${aws_launch_configuration.web-lc.name}"
   load_balancers       = ["${aws_elb.web-elb.name}"]
+  enabled_metrics      = ["GroupMinSize", "GroupMaxSize", "GroupDesiredCapacity", "GroupInServiceInstances", "GroupTotalInstances"]
+  metrics_granularity  = "1Minute"
+  health_check_type    = "ELB"
 
   #vpc_zone_identifier = ["${split(",",var.availability_zones)}"]
   tags {
@@ -85,12 +88,57 @@ resource "aws_autoscaling_group" "web-asg" {
   }
 }
 
-resource "aws_autoscaling_policy" "bat" {
-  name                   = "foobar3-terraform-test"
-  scaling_adjustment     = 4
+resource "aws_autoscaling_policy" "autopolicy" {
+  name                   = "terraform-autoplicy"
+  scaling_adjustment     = 1
   adjustment_type        = "ChangeInCapacity"
   cooldown               = 300
   autoscaling_group_name = "${aws_autoscaling_group.web-asg.name}"
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpualarm" {
+  alarm_name          = "terraform-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "60"
+
+  dimensions {
+    AutoScalingGroupName = "${aws_autoscaling_group.web-asg.name}"
+  }
+
+  alarm_description = "This metric monitor EC2 instance cpu utilization"
+  alarm_actions     = ["${aws_autoscaling_policy.autopolicy.arn}"]
+}
+
+#
+resource "aws_autoscaling_policy" "autopolicy-down" {
+  name                   = "terraform-autoplicy-down"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = "${aws_autoscaling_group.web-asg.name}"
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpualarm-down" {
+  alarm_name          = "terraform-alarm-down"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "10"
+
+  dimensions {
+    AutoScalingGroupName = "${aws_autoscaling_group.web-asg.name}"
+  }
+
+  alarm_description = "This metric monitor EC2 instance cpu utilization"
+  alarm_actions     = ["${aws_autoscaling_policy.autopolicy-down.arn}"]
 }
 
 resource "aws_key_pair" "auth" {
