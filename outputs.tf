@@ -13,3 +13,7 @@ output "asg_name" {
 output "elb_name" {
   value = "${aws_elb.web-elb.dns_name}"
 }
+
+output "elb_name2" {
+  value = "${aws_elb.web-elb.name}"
+}
